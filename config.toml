@@ -1,5 +1,6 @@
 network = "10.0.0.0/24"
-port = 8080
+target_ip = 127.0.0.1
+target_port = 8080
 methods = ["GET", "POST", "PUT", "DELETE", "HEAD"]
 
 uris = [

@@ -1,21 +1,36 @@
 use std::fs;
-use log::{info, warn, error};
+use log::{info, trace};
+use cidr::{Cidr, Ipv4Cidr};
 
-//#[macro_use]
-extern crate log;
 use serde_derive::Deserialize;
+extern crate log;
 
 #[derive(Deserialize, Debug)]
 struct Config {
     network: String,
-    port: u16,
+    target_ip: String,
+    target_port: u16,
     methods: Vec<String>,
     uris: Vec<String>
 }
 
+struct Request {
+    method: String,
+}
+
+fn read_config(config_path: &str) -> Result<Config, ()> {
+    let config = fs::read_to_string(config_path).unwrap();
+    let parsed_config : Config = toml::from_str(config.as_str()).unwrap();
+    Ok(parsed_config)
+}
+
+fn generate_request() {
+}
+
 fn main() {
     env_logger::init();
-    let config = fs::read_to_string("config.toml").unwrap();
-    let parsed_config : Config = toml::from_str(config.as_str()).unwrap();
-    info!("Config content:\n{:?}", parsed_config);
+    let config = read_config("config.toml").unwrap();
+    info!("Config content:\n{:?}", config);
+
+    let network = config.network.as_str().parse::<Ipv4Cidr>().unwrap();
 }
