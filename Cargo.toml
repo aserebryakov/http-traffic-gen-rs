@@ -1,5 +1,5 @@
 [package]
-name = "http-traffic-gen-rs"
+name = "http_traffic_generator"
 version = "0.1.0"
 authors = ["Alexander Serebryakov <alex.serebr@gmail.com>"]
 edition = "2018"
