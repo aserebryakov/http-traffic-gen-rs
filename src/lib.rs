@@ -1,29 +1,14 @@
 mod config;
+mod generator;
+
 use config::Config;
 use config::IpList;
 use std::io::prelude::*;
-use log::{info, trace};
-use rand::seq::IteratorRandom;
+use log::{info, debug};
 extern crate log;
 use std::net::TcpStream;
 use std::str::FromStr;
-
-struct RandomRequestGenerator {
-    config: Config,
-    ips: IpList,
-}
-
-impl RandomRequestGenerator {
-    fn generate_request(&self) -> String {
-        let mut rng = rand::thread_rng();
-        let method = self.config.methods.iter().choose(&mut rng).unwrap();
-        let uri = self.config.uris.iter().choose(&mut rng).unwrap();
-        let ip = self.ips.ips.iter().choose(&mut rng).unwrap();
-        let request = format!("{} {} HTTP/1.1\r\nhost: localhost\r\nX-Forwarded-For: {}\r\n\r\n", method, uri, ip);
-        trace!("Request:\n{}", request);
-        request
-    }
-}
+use generator::RandomRequestGenerator;
 
 fn send_request(request: &str, address: &str) {
     let mut stream = TcpStream::connect(address).unwrap();
@@ -35,8 +20,8 @@ fn send_request(request: &str, address: &str) {
     let response_string = String::from_utf8(response).unwrap();
 
     match response_string.find("403 Forbidden") {
-        Some(_) => println!("FORBIDDEN"),
-        None => println!("Response:\n{}\n", response_string),
+        Some(_) => debug!("FORBIDDEN"),
+        None => debug!("Response:\n{}\n", response_string),
     }
 }
 
