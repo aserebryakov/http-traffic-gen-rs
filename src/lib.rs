@@ -15,11 +15,27 @@ use statistics::Statistics;
 
 fn send_request(request: &str, address: &str, stats: &mut Statistics) {
     let buffer_size = 1024;
+    stats.connection_attempt();
+
     let mut stream = TcpStream::connect(address).unwrap();
     let mut response = vec![0;buffer_size];
 
-    stream.write(&request.as_bytes()).unwrap();
-    stream.read(response.as_mut_slice()).unwrap();
+    let write_result = stream.write(&request.as_bytes());
+
+    if write_result.is_err() {
+        stats.connection_failed();
+        return ()
+    }
+
+    debug!("{} error", write_result.is_err());
+
+    let read_result = stream.read(response.as_mut_slice());
+    debug!("{} error", read_result.is_err());
+
+    if read_result.is_err() {
+        stats.connection_failed();
+        return ()
+    }
 
     let response_string = String::from_utf8(response).unwrap();
 
@@ -40,6 +56,6 @@ pub fn run(config_path: &str) -> Result<(), std::io::Error> {
     let mut stats = Statistics::new();
     loop {
         send_request(generator.generate_request().as_str(), config.target.as_str(), &mut stats);
-        print!("Statistics {}\n", stats);
+        print!("Statistics\n{}\n", stats);
     }
 }
