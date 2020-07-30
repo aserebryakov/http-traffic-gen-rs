@@ -45,7 +45,7 @@ impl fmt::Display for Statistics {
 
         for (code, count) in &self.response_codes {
             let percent = 100 * count / self.requests_sent;
-            write!(f, "{} {} ({}%)", code, count, percent)?;
+            write!(f, "{:20} {:8} ({:3}%) {:*<width$}\n", code, count, percent, "", width = (percent/10 + 1) as usize)?;
         }
 
         Ok(())
