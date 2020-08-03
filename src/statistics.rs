@@ -26,6 +26,10 @@ impl Statistics {
         self.connections_failed += 1;
     }
 
+    pub fn request_sent(&mut self) {
+        self.requests_sent += 1;
+    }
+
     pub fn count_response(&mut self, response_line: String) {
         let count = match self.response_codes.get(&response_line) {
             Some(count) => count + 1,
@@ -33,7 +37,6 @@ impl Statistics {
         };
 
         self.response_codes.insert(response_line, count);
-        self.requests_sent += 1;
     }
 }
 

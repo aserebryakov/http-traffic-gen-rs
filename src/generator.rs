@@ -5,6 +5,7 @@ use crate::config::IpList;
 use log::debug;
 use rand::seq::IteratorRandom;
 
+#[derive(Clone)]
 pub struct RandomRequestGenerator {
     pub config: Config,
     pub ips: IpList,

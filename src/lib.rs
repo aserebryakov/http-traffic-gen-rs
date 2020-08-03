@@ -12,10 +12,19 @@ use std::str::FromStr;
 use generator::RandomRequestGenerator;
 use statistics::Statistics;
 
+use std::sync::mpsc::{Sender, channel};
+use std::thread;
 
-fn send_request(request: &str, address: &str, stats: &mut Statistics) {
+enum StatisticsUpdate {
+    ConnectionAttempt,
+    Sent,
+    Received(String),
+    Error
+}
+
+fn send_request(request: &str, address: &str, stats: &Sender<StatisticsUpdate>) {
     let buffer_size = 1024;
-    stats.connection_attempt();
+    stats.send(StatisticsUpdate::ConnectionAttempt).unwrap();
 
     let mut stream = TcpStream::connect(address).unwrap();
     let mut response = vec![0;buffer_size];
@@ -23,25 +32,34 @@ fn send_request(request: &str, address: &str, stats: &mut Statistics) {
     let write_result = stream.write(&request.as_bytes());
 
     if write_result.is_err() {
-        stats.connection_failed();
+        stats.send(StatisticsUpdate::Error).unwrap();
         return ()
     }
 
-    debug!("{} error", write_result.is_err());
+    stats.send(StatisticsUpdate::Sent).unwrap();
 
     let read_result = stream.read(response.as_mut_slice());
-    debug!("{} error", read_result.is_err());
 
     if read_result.is_err() {
-        stats.connection_failed();
+        stats.send(StatisticsUpdate::Error).unwrap();
         return ()
     }
 
     let response_string = String::from_utf8(response).unwrap();
 
-    stats.count_response(response_string.lines().next().unwrap().to_string());
+    stats.send(StatisticsUpdate::Received(response_string.lines().next().unwrap().to_string())).unwrap();
+
     debug!("Response : {}", response_string.lines().next().unwrap().to_string());
     trace!("First {} bytest of response:\n{}\n", buffer_size, response_string);
+}
+
+fn update_statistics(stats: &mut Statistics, update: StatisticsUpdate) {
+    match update {
+        StatisticsUpdate::ConnectionAttempt => stats.connection_attempt(),
+        StatisticsUpdate::Sent => stats.request_sent(),
+        StatisticsUpdate::Received(response) => stats.count_response(response),
+        StatisticsUpdate::Error => stats.connection_failed(),
+    }
 }
 
 pub fn run(config_path: &str) -> Result<(), std::io::Error> {
@@ -53,9 +71,21 @@ pub fn run(config_path: &str) -> Result<(), std::io::Error> {
         ips: IpList::from_str(config.network.as_str()).unwrap(),
     };
 
+    let (sender, receiver) = channel();
+
+    for _ in 0..4 {
+        let stats_sender = sender.clone();
+        let generator = generator.clone();
+        thread::spawn(move || {
+            loop {
+                send_request(generator.generate_request().as_str(), generator.config.target.as_str(), &stats_sender);
+            }
+        });
+    }
+
     let mut stats = Statistics::new();
     loop {
-        send_request(generator.generate_request().as_str(), config.target.as_str(), &mut stats);
         print!("Statistics\n{}\n", stats);
+        update_statistics(&mut stats, receiver.recv().unwrap());
     }
 }
