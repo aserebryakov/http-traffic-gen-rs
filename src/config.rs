@@ -22,6 +22,7 @@ pub struct Config {
     pub target: String,
     pub methods: Vec<String>,
     pub uris: Vec<String>,
+    pub worker_threads: u32,
 }
 
 impl Config {

@@ -1,10 +1,11 @@
-network = "10.0.0.0/24"
+network = "10.0.0.0/30"
 target = "127.0.0.1:8080"
 methods = ["GET", "POST", "PUT", "DELETE", "HEAD"]
+worker_threads = 5
 
 uris = [
     "/",
     "/index.html",
-    "/logo.jpg"
+    "/logo.jpg",
 ]
 

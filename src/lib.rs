@@ -73,7 +73,7 @@ pub fn run(config_path: &str) -> Result<(), std::io::Error> {
 
     let (sender, receiver) = channel();
 
-    for _ in 0..4 {
+    for _ in 0..config.worker_threads {
         let stats_sender = sender.clone();
         let generator = generator.clone();
         thread::spawn(move || {
