@@ -8,6 +8,13 @@ pub struct Statistics {
     pub response_codes: HashMap<String, i32>,
 }
 
+pub enum StatisticsUpdate {
+    ConnectionAttempt,
+    Sent,
+    Received(String),
+    Error
+}
+
 impl Statistics {
     pub fn new() -> Statistics {
         Statistics{
@@ -18,25 +25,34 @@ impl Statistics {
             }
     }
 
-    pub fn connection_attempt(&mut self) {
+    fn connection_attempt(&mut self) {
         self.connection_attempts += 1;
     }
 
-    pub fn connection_failed(&mut self) {
+    fn connection_failed(&mut self) {
         self.connections_failed += 1;
     }
 
-    pub fn request_sent(&mut self) {
+    fn request_sent(&mut self) {
         self.requests_sent += 1;
     }
 
-    pub fn count_response(&mut self, response_line: String) {
+    fn count_response(&mut self, response_line: String) {
         let count = match self.response_codes.get(&response_line) {
             Some(count) => count + 1,
             None => 1,
         };
 
         self.response_codes.insert(response_line, count);
+    }
+
+    pub fn update(&mut self, update: StatisticsUpdate) {
+        match update {
+            StatisticsUpdate::ConnectionAttempt => self.connection_attempt(),
+            StatisticsUpdate::Sent => self.request_sent(),
+            StatisticsUpdate::Received(response) => self.count_response(response),
+            StatisticsUpdate::Error => self.connection_failed(),
+        }
     }
 }
 
@@ -54,20 +70,3 @@ impl fmt::Display for Statistics {
         Ok(())
     }
 }
-
-pub enum StatisticsUpdate {
-    ConnectionAttempt,
-    Sent,
-    Received(String),
-    Error
-}
-
-pub fn update_statistics(stats: &mut Statistics, update: StatisticsUpdate) {
-    match update {
-        StatisticsUpdate::ConnectionAttempt => stats.connection_attempt(),
-        StatisticsUpdate::Sent => stats.request_sent(),
-        StatisticsUpdate::Received(response) => stats.count_response(response),
-        StatisticsUpdate::Error => stats.connection_failed(),
-    }
-}
-

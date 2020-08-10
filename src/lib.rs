@@ -9,12 +9,29 @@ use config::Config;
 use config::IpList;
 use std::str::FromStr;
 use generator::RandomRequestGenerator;
-use statistics::{Statistics, update_statistics};
+use statistics::{Statistics, StatisticsUpdate};
 use log::info;
-
-use std::sync::mpsc::channel;
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use worker::Worker;
+
+fn stats_updater(receiver: Receiver<StatisticsUpdate>) {
+    let mut stats = Statistics::new();
+    loop {
+        print!("Statistics\n{}\n", stats);
+        stats.update(receiver.recv().unwrap());
+    }
+}
+
+fn run_workers(count: u32, generator: RandomRequestGenerator, sender: Sender<StatisticsUpdate>) {
+    for _ in 0..count {
+        let sender = sender.clone();
+        let generator = generator.clone();
+        thread::spawn(move || {
+            Worker::new(sender, generator).run();
+        });
+    }
+}
 
 pub fn run(config_path: &str) -> Result<(), std::io::Error> {
     let config = Config::read_from_file(config_path).unwrap();
@@ -27,17 +44,8 @@ pub fn run(config_path: &str) -> Result<(), std::io::Error> {
 
     let (sender, receiver) = channel();
 
-    for _ in 0..config.worker_threads {
-        let sender = sender.clone();
-        let generator = generator.clone();
-        thread::spawn(move || {
-            Worker::new(sender, generator).run();
-        });
-    }
+    run_workers(config.worker_threads, generator, sender);
+    stats_updater(receiver);
 
-    let mut stats = Statistics::new();
-    loop {
-        print!("Statistics\n{}\n", stats);
-        update_statistics(&mut stats, receiver.recv().unwrap());
-    }
+    Ok(())
 }
