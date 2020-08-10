@@ -54,3 +54,20 @@ impl fmt::Display for Statistics {
         Ok(())
     }
 }
+
+pub enum StatisticsUpdate {
+    ConnectionAttempt,
+    Sent,
+    Received(String),
+    Error
+}
+
+pub fn update_statistics(stats: &mut Statistics, update: StatisticsUpdate) {
+    match update {
+        StatisticsUpdate::ConnectionAttempt => stats.connection_attempt(),
+        StatisticsUpdate::Sent => stats.request_sent(),
+        StatisticsUpdate::Received(response) => stats.count_response(response),
+        StatisticsUpdate::Error => stats.connection_failed(),
+    }
+}
+

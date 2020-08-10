@@ -1,56 +1,20 @@
+extern crate log;
+
 mod config;
 mod generator;
 mod statistics;
+mod worker;
 
 use config::Config;
 use config::IpList;
-use std::io::prelude::*;
-use log::{info, debug, trace};
-extern crate log;
-use std::net::TcpStream;
 use std::str::FromStr;
 use generator::RandomRequestGenerator;
-use statistics::Statistics;
+use statistics::{Statistics, update_statistics};
+use log::info;
 
-use std::sync::mpsc::{Sender, channel};
+use std::sync::mpsc::channel;
 use std::thread;
-
-enum StatisticsUpdate {
-    ConnectionAttempt,
-    Sent,
-    Received(String),
-    Error
-}
-
-fn send_request(request: &str, address: &str, stats: &Sender<StatisticsUpdate>) -> Result<(), std::io::Error> {
-    stats.send(StatisticsUpdate::ConnectionAttempt).unwrap();
-    let mut stream = TcpStream::connect(address)?;
-
-    let _ = stream.write(&request.as_bytes())?;
-    stats.send(StatisticsUpdate::Sent).unwrap();
-
-    let buffer_size = 1024;
-    let mut response = vec![0;buffer_size];
-
-    let _ = stream.read(response.as_mut_slice())?;
-
-    let response_string = String::from_utf8(response).unwrap();
-    stats.send(StatisticsUpdate::Received(response_string.lines().next().unwrap().to_string())).unwrap();
-
-    debug!("Response : {}", response_string.lines().next().unwrap().to_string());
-    trace!("First {} bytest of response:\n{}\n", buffer_size, response_string);
-
-    Ok(())
-}
-
-fn update_statistics(stats: &mut Statistics, update: StatisticsUpdate) {
-    match update {
-        StatisticsUpdate::ConnectionAttempt => stats.connection_attempt(),
-        StatisticsUpdate::Sent => stats.request_sent(),
-        StatisticsUpdate::Received(response) => stats.count_response(response),
-        StatisticsUpdate::Error => stats.connection_failed(),
-    }
-}
+use worker::Worker;
 
 pub fn run(config_path: &str) -> Result<(), std::io::Error> {
     let config = Config::read_from_file(config_path).unwrap();
@@ -64,14 +28,10 @@ pub fn run(config_path: &str) -> Result<(), std::io::Error> {
     let (sender, receiver) = channel();
 
     for _ in 0..config.worker_threads {
-        let stats_sender = sender.clone();
+        let sender = sender.clone();
         let generator = generator.clone();
         thread::spawn(move || {
-            loop {
-                if let Err(_) = send_request(generator.generate_request().as_str(), generator.config.target.as_str(), &stats_sender) {
-                    stats_sender.send(StatisticsUpdate::Error).unwrap();
-                }
-            }
+            Worker::new(sender, generator).run();
         });
     }
 
