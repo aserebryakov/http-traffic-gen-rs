@@ -22,35 +22,25 @@ enum StatisticsUpdate {
     Error
 }
 
-fn send_request(request: &str, address: &str, stats: &Sender<StatisticsUpdate>) {
-    let buffer_size = 1024;
+fn send_request(request: &str, address: &str, stats: &Sender<StatisticsUpdate>) -> Result<(), std::io::Error> {
     stats.send(StatisticsUpdate::ConnectionAttempt).unwrap();
+    let mut stream = TcpStream::connect(address)?;
 
-    let mut stream = TcpStream::connect(address).unwrap();
-    let mut response = vec![0;buffer_size];
-
-    let write_result = stream.write(&request.as_bytes());
-
-    if write_result.is_err() {
-        stats.send(StatisticsUpdate::Error).unwrap();
-        return ()
-    }
-
+    let _ = stream.write(&request.as_bytes())?;
     stats.send(StatisticsUpdate::Sent).unwrap();
 
-    let read_result = stream.read(response.as_mut_slice());
+    let buffer_size = 1024;
+    let mut response = vec![0;buffer_size];
 
-    if read_result.is_err() {
-        stats.send(StatisticsUpdate::Error).unwrap();
-        return ()
-    }
+    let _ = stream.read(response.as_mut_slice())?;
 
     let response_string = String::from_utf8(response).unwrap();
-
     stats.send(StatisticsUpdate::Received(response_string.lines().next().unwrap().to_string())).unwrap();
 
     debug!("Response : {}", response_string.lines().next().unwrap().to_string());
     trace!("First {} bytest of response:\n{}\n", buffer_size, response_string);
+
+    Ok(())
 }
 
 fn update_statistics(stats: &mut Statistics, update: StatisticsUpdate) {
@@ -78,7 +68,9 @@ pub fn run(config_path: &str) -> Result<(), std::io::Error> {
         let generator = generator.clone();
         thread::spawn(move || {
             loop {
-                send_request(generator.generate_request().as_str(), generator.config.target.as_str(), &stats_sender);
+                if let Err(_) = send_request(generator.generate_request().as_str(), generator.config.target.as_str(), &stats_sender) {
+                    stats_sender.send(StatisticsUpdate::Error).unwrap();
+                }
             }
         });
     }
