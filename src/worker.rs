@@ -22,10 +22,10 @@ impl Worker {
 
     pub fn run(&self) {
         loop {
-            if let Err(_) = self.send_request(
+            if let Err(e) = self.send_request(
                 self.generator.generate_request().as_str(),
                 self.generator.config.target.as_str(), &self.stats_sender) {
-                self.stats_sender.send(StatisticsUpdate::Error).unwrap();
+                self.stats_sender.send(StatisticsUpdate::Error(e.to_string())).unwrap();
             }
         }
     }

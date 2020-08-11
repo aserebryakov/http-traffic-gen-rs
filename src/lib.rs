@@ -14,12 +14,21 @@ use log::info;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use worker::Worker;
+use std::time::{SystemTime, Duration};
 
-fn stats_updater(receiver: Receiver<StatisticsUpdate>) {
+fn run_stats_updater(receiver: Receiver<StatisticsUpdate>) {
     let mut stats = Statistics::new();
+    let mut now = SystemTime::now();
+    let start = SystemTime::now();
+
     loop {
-        print!("Statistics\n{}\n", stats);
         stats.update(receiver.recv().unwrap());
+        if now.elapsed().unwrap() > Duration::new(1, 0) {
+            now = SystemTime::now();
+            println!("Statistics");
+            println!("==========");
+            print!("\nElapsed time {}s\n{}\n", start.elapsed().unwrap().as_secs(), stats);
+        }
     }
 }
 
@@ -45,7 +54,7 @@ pub fn run(config_path: &str) -> Result<(), std::io::Error> {
     let (sender, receiver) = channel();
 
     run_workers(config.worker_threads, generator, sender);
-    stats_updater(receiver);
+    run_stats_updater(receiver);
 
     Ok(())
 }
