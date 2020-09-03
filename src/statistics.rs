@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 use std::fmt;
 
+#[derive(Clone)]
 pub enum StatisticsUpdate {
     ConnectionAttempt,
     Sent,
     Received(String),
     Error(String),
+    Empty,
 }
 
 struct StatisticsSummary {
@@ -31,6 +33,7 @@ impl StatisticsSummary {
             StatisticsUpdate::Sent => self.request_sent(),
             StatisticsUpdate::Received(response) => self.count_response(response),
             StatisticsUpdate::Error(cause) => self.connection_failed(cause),
+            StatisticsUpdate::Empty => (),
         }
     }
 
@@ -57,7 +60,7 @@ impl StatisticsSummary {
     }
 }
 
-impl fmt::Display for StatisticsSummary{
+impl fmt::Display for StatisticsSummary {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Connections attempts {}\n", &self.connection_attempts)?;
         write!(f, "Connections failed {}\n", &self.connections_failed)?;
@@ -76,6 +79,8 @@ impl fmt::Display for StatisticsSummary{
 pub struct Statistics {
     run_summary: StatisticsSummary,
     last_updates: Vec::<StatisticsUpdate>,
+    sliding_window_size: usize,
+    sliding_window_cursor: usize,
 }
 
 impl Statistics {
@@ -83,17 +88,46 @@ impl Statistics {
         Statistics {
             run_summary: StatisticsSummary::new(),
             last_updates: Vec::new(),
+            sliding_window_size: 4096,
+            sliding_window_cursor: 0,
         }
     }
 
     pub fn update(&mut self, update: StatisticsUpdate) {
-        self.run_summary.update(update)
+        self.run_summary.update(update.clone());
+        self.update_sliding_window(update);
+    }
+
+    fn update_sliding_window(&mut self, update: StatisticsUpdate) {
+        if self.last_updates.len() < self.sliding_window_size {
+            self.last_updates.resize(self.sliding_window_size, StatisticsUpdate::Empty);
+        }
+
+        self.last_updates[self.sliding_window_cursor] = update;
+        self.sliding_window_cursor += 1;
+        self.sliding_window_cursor %= self.sliding_window_size;
+    }
+
+    fn get_sliding_window_stats(&self) -> StatisticsSummary {
+        let mut summary = StatisticsSummary::new();
+        for update in &self.last_updates {
+            summary.update(update.clone());
+        }
+
+        summary
     }
 }
 
-impl fmt::Display for Statistics{
+impl fmt::Display for Statistics {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.run_summary)?;
+        write!(f, "Run Summary\n")?;
+        write!(f, "-----------\n")?;
+        write!(f, "{}\n", self.run_summary)?;
+
+        write!(f, "Last {} updates\n", self.sliding_window_size)?;
+        write!(f, "-----------\n")?;
+        write!(f, "{}\n", self.get_sliding_window_stats())?;
+
         Ok(())
     }
 }
