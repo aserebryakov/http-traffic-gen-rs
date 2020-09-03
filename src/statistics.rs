@@ -1,13 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
 
-pub struct Statistics {
-    pub connection_attempts: i32,
-    pub connections_failed: i32,
-    pub requests_sent: i32,
-    pub responses: HashMap<String, i32>,
-}
-
 pub enum StatisticsUpdate {
     ConnectionAttempt,
     Sent,
@@ -15,14 +8,30 @@ pub enum StatisticsUpdate {
     Error(String),
 }
 
-impl Statistics {
-    pub fn new() -> Statistics {
-        Statistics{
+struct StatisticsSummary {
+    connection_attempts: i32,
+    connections_failed: i32,
+    requests_sent: i32,
+    responses: HashMap<String, i32>,
+}
+
+impl StatisticsSummary {
+    fn new() -> StatisticsSummary {
+        StatisticsSummary {
             connection_attempts: 0,
             connections_failed: 0,
             requests_sent: 0,
             responses: HashMap::new(),
-            }
+        }
+    }
+
+    pub fn update(&mut self, update: StatisticsUpdate) {
+        match update {
+            StatisticsUpdate::ConnectionAttempt => self.connection_attempt(),
+            StatisticsUpdate::Sent => self.request_sent(),
+            StatisticsUpdate::Received(response) => self.count_response(response),
+            StatisticsUpdate::Error(cause) => self.connection_failed(cause),
+        }
     }
 
     fn connection_attempt(&mut self) {
@@ -46,18 +55,9 @@ impl Statistics {
 
         self.responses.insert(response_line, count);
     }
-
-    pub fn update(&mut self, update: StatisticsUpdate) {
-        match update {
-            StatisticsUpdate::ConnectionAttempt => self.connection_attempt(),
-            StatisticsUpdate::Sent => self.request_sent(),
-            StatisticsUpdate::Received(response) => self.count_response(response),
-            StatisticsUpdate::Error(cause) => self.connection_failed(cause),
-        }
-    }
 }
 
-impl fmt::Display for Statistics {
+impl fmt::Display for StatisticsSummary{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Connections attempts {}\n", &self.connection_attempts)?;
         write!(f, "Connections failed {}\n", &self.connections_failed)?;
@@ -69,6 +69,31 @@ impl fmt::Display for Statistics {
             write!(f, "{:50} {:8} ({:3}%) {:*<width$}\n", code, count, percent, "", width = (percent/10 + 1) as usize)?;
         }
 
+        Ok(())
+    }
+}
+
+pub struct Statistics {
+    run_summary: StatisticsSummary,
+    last_updates: Vec::<StatisticsUpdate>,
+}
+
+impl Statistics {
+    pub fn new() -> Statistics {
+        Statistics {
+            run_summary: StatisticsSummary::new(),
+            last_updates: Vec::new(),
+        }
+    }
+
+    pub fn update(&mut self, update: StatisticsUpdate) {
+        self.run_summary.update(update)
+    }
+}
+
+impl fmt::Display for Statistics{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.run_summary)?;
         Ok(())
     }
 }
