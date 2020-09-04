@@ -27,7 +27,15 @@ fn run_stats_updater(receiver: Receiver<StatisticsUpdate>) {
             now = SystemTime::now();
             println!("Statistics");
             println!("==========");
-            print!("\nElapsed time {}s\n{}\n", start.elapsed().unwrap().as_secs(), stats);
+            println!("\nElapsed time {}s\n", start.elapsed().unwrap().as_secs());
+
+            println!("Run Summary");
+            println!("----------");
+            print!("\n{}\n", stats.run_summary);
+
+            println!("Last Update Summary");
+            println!("----------");
+            print!("\n{}\n", stats.get_sliding_window_stats());
         }
     }
 }
