@@ -52,3 +52,10 @@ Log level can be set with `RUST_LOG` environment variable.
 ```
 $ RUST_LOG=trace cargo run
 ```
+
+## Next Features
+
+  - [ ] Passing configuration file in parameter
+  - [ ] Simulate connections drops
+  - [ ] Send requests with body
+  - [ ] URI and body fuzzing
