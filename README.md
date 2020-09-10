@@ -55,7 +55,7 @@ $ RUST_LOG=trace cargo run
 
 ## Next Features
 
-  - [ ] Passing configuration file in parameter
+  - [x] Passing configuration file as parameter
   - [ ] Simulate connections drops
   - [ ] Send requests with body
   - [ ] URI and body fuzzing
